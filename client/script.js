@@ -1,7 +1,7 @@
 import bot from './assets/bot.svg';
 import user from './assets/user.svg';
 
-
+const API_KEY = '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';
 
 const form = document.querySelector('form');
 const chatContainer = document.querySelector('#chat_container');
@@ -90,7 +90,7 @@ const handleSubmit = async (e) => {
       method: 'POST',
       headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${OPENAI_API_KEY}`
+          'Authorization': `Bearer ${API_KEY}`
       },
       body: JSON.stringify({
           prompt: data.get('prompt')
