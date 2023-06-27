@@ -120,10 +120,11 @@ const handleSubmit = async (e) => {
     isFetching = false; // Reinicia la variable isFetching después
   }
 
-  form.addEventListener('submit', handleSubmit)
+}
+
+form.addEventListener('submit', handleSubmit)
   form.addEventListener('keyup', (e) => {
     if (e.keyCode === 13) {
       handleSubmit(e)
     }
   })
-}
