@@ -1,12 +1,12 @@
 import bot from './assets/bot.svg';
 import user from './assets/user.svg';
 
-
+const API_KEY = process.env.OPENAI_API_KEY;
 const form = document.querySelector('form');
 const chatContainer = document.querySelector('#chat_container');
 
-
 let loadInterval;
+let isFetching = false; // Variable para controlar si se está realizando una solicitud
 
 function loader(element) {
   element.textContent = '';
@@ -17,7 +17,7 @@ function loader(element) {
     if (element.textContent === '...') {
       element.textContent = '';
     }
-  }, 300)
+  }, 300);
 }
 
 function typeText(element, text) {
@@ -30,12 +30,9 @@ function typeText(element, text) {
     } else {
       clearInterval(interval);
     }
-  }, 20)
+  }, 20);
 }
 
-// generate unique ID for each message div of bot
-// necessary for typing text effect for that specific reply
-// without unique ID, typing text will work on every element
 function generateUniqueId() {
   const timestamp = Date.now();
   const randomNumber = Math.random();
@@ -45,77 +42,88 @@ function generateUniqueId() {
 }
 
 function chatStripe(isAi, value, uniqueId) {
-  return (
-      `
-      <div class="wrapper ${isAi && 'ai'}">
-          <div class="chat">
-              <div class="profile">
-                  <img 
-                    src=${isAi ? bot : user} 
-                    alt="${isAi ? 'bot' : 'user'}" 
-                  />
-              </div>
-              <div class="message" id=${uniqueId}>${value}</div>
-          </div>
-      </div>
-  `
-  )
+  return `
+    <div class="wrapper ${isAi ? 'ai' : ''}">
+        <div class="chat">
+            <div class="profile">
+                <img 
+                  src=${isAi ? bot : user} 
+                  alt="${isAi ? 'bot' : 'user'}" 
+                />
+            </div>
+            <div class="message" id=${uniqueId}>${value}</div>
+        </div>
+    </div>
+  `;
 }
 
 const handleSubmit = async (e) => {
-  e.preventDefault()
+  e.preventDefault();
 
-  const data = new FormData(form)
+  if (isFetching) {
+    return; // Evita realizar múltiples solicitudes simultáneas
+  }
 
-  // user's chatstripe
-  chatContainer.innerHTML += chatStripe(false, data.get('prompt'))
+  const data = new FormData(form);
+  const userPrompt = data.get('prompt').trim();
+
+  if (!userPrompt) {
+    return; // Evita enviar solicitudes vacías
+  }
+
+  // user's chat stripe
+  chatContainer.innerHTML += chatStripe(false, userPrompt);
 
   // to clear the textarea input 
-  form.reset()
+  form.reset();
 
-  // bot's chatstripe
-  const uniqueId = generateUniqueId()
-  chatContainer.innerHTML += chatStripe(true, " ", uniqueId)
+  // bot's chat stripe
+  const uniqueId = generateUniqueId();
+  chatContainer.innerHTML += chatStripe(true, '', uniqueId);
 
   // to focus scroll to the bottom 
   chatContainer.scrollTop = chatContainer.scrollHeight;
 
   // specific message div 
-  const messageDiv = document.getElementById(uniqueId)
+  const messageDiv = document.getElementById(uniqueId);
 
-  // messageDiv.innerHTML = "..."
-  loader(messageDiv)
+  loader(messageDiv);
+  isFetching = true; // Indica que se está realizando una solicitud
 
-  const response = await fetch('https://automated-ai.onrender.com', {
+  try {
+    const response = await fetch('https://automated-ai.onrender.com', {
       method: 'POST',
       headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`
       },
       body: JSON.stringify({
-          prompt: data.get('prompt')
+        prompt: userPrompt
       })
-  })
+    });
 
-  clearInterval(loadInterval)
-  messageDiv.innerHTML = " "
+    clearInterval(loadInterval);
+    messageDiv.innerHTML = '';
 
-  if (response.ok) {
-      const data = await response.json();
-      const parsedData = data.bot.trim() // trims any trailing spaces/'\n' 
+    if (response.ok) {
+      const responseData = await response.json();
+      const botResponse = responseData.bot.trim();
 
-      typeText(messageDiv, parsedData)
-  } else {
-      const err = await response.text()
-
-      messageDiv.innerHTML = "Something went wrong"
-      alert(err)
-  }
-}
-
-form.addEventListener('submit', handleSubmit)
-form.addEventListener('keyup', (e) => {
-    if (e.keyCode === 13) {
-        handleSubmit(e)
+      typeText(messageDiv, botResponse);
+    } else {
+      throw new Error('Request failed'); // Lanzar un error si la solicitud no es exitosa
     }
-})
+  } catch (error) {
+    messageDiv.innerHTML = 'Something went wrong';
+    console.error(error);
+  } finally {
+    isFetching = false; // Reinicia la variable isFetching después
+  }
+
+  form.addEventListener('submit', handleSubmit)
+  form.addEventListener('keyup', (e) => {
+    if (e.keyCode === 13) {
+      handleSubmit(e)
+    }
+  })
+}
